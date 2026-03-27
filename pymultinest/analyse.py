@@ -94,14 +94,19 @@ class Analyzer(object):
 		return self.equal_weighted_posterior
 	
 	def _read_error_line(self, l):
-		#print('_read_error_line -> line>', l)
-		name, values = l.split('   ', 1)
-		#print('_read_error_line -> name>', name)
-		#print('_read_error_line -> values>', values)
-		name = name.strip(': ').strip()
-		values = values.strip(': ').strip()
-		v, error = values.split(" +/- ")
-		return name, float(v), float(error)
+		def _parse_float_token(token):
+			t = token.strip().replace('D', 'E').replace('d', 'e')
+			if '*' in t:
+				return float('nan')
+			return float(t)
+
+		line = l.strip()
+		name, values = line.split(':', 1)
+		name = name.strip()
+		values = values.strip()
+		v, error = re.split(r'\s*\+/-\s*', values, maxsplit=1)
+		return name, _parse_float_token(v), _parse_float_token(error)
+	
 	def _read_error_into_dict(self, l, d):
 		name, v, error = self._read_error_line(l)
 		d[name.lower()] = v
