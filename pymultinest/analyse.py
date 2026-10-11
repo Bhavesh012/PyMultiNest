@@ -29,6 +29,13 @@ import numpy
 from io import StringIO
 import re
 
+def _parse_fortran_float(token):
+	# Fortran Ew.d drops the 'E' when the exponent needs 3 digits
+	# (e.g. "0.123-100"); put it back so float() accepts it.
+	t = token.strip()
+	t = re.sub(r'(?<=[0-9.])([+-]\d{3,})$', r'E\1', t)
+	return float(t)
+
 def loadtxt2d(intext):
 	try:
 		return numpy.loadtxt(intext, ndmin=2)
@@ -94,18 +101,16 @@ class Analyzer(object):
 		return self.equal_weighted_posterior
 	
 	def _read_error_line(self, l):
-		def _parse_float_token(token):
-			t = token.strip().replace('D', 'E').replace('d', 'e')
-			if '*' in t:
-				return float('nan')
-			return float(t)
-
-		line = l.strip()
-		name, values = line.split(':', 1)
-		name = name.strip()
-		values = values.strip()
-		v, error = re.split(r'\s*\+/-\s*', values, maxsplit=1)
-		return name, _parse_float_token(v), _parse_float_token(error)
+		# Parses "<name>[:] <value> +/- <error>" as written by MultiNest, e.g.
+		#   "Nested Sampling Global Log-Evidence           :  -0.17E+01  +/-   0.94E-01"
+		#   "Strictly Local Log-Evidence -0.17E+0001 +/- 0.94E-0001"
+		# The colon is only present on the global lines, and the padding
+		# between name and value depends on the Fortran format (E28.18,
+		# E28.18E3, E28.18E4), so split on the "+/-" marker instead.
+		left, error = l.split('+/-', 1)
+		name, v = left.rstrip().rsplit(None, 1)
+		name = name.strip().rstrip(':').strip()
+		return name, _parse_fortran_float(v), _parse_fortran_float(error)
 	
 	def _read_error_into_dict(self, l, d):
 		name, v, error = self._read_error_line(l)
