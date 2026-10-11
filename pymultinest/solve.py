@@ -63,7 +63,9 @@ def solve(LogLikelihood, Prior, n_dims, **kwargs):
 			return l
 		except Exception as e:
 			import sys
+			import traceback
 			sys.stderr.write('ERROR in loglikelihood: %s\n' % e)
+			traceback.print_exc(file=sys.stderr)
 			sys.exit(1)
 	
 	kwargs['LogLikelihood'] = SafeLoglikelihood
